@@ -1,6 +1,8 @@
 # Go JSON
 
-This is a replacement JSON marshaler/encoder (but not unmarshaler/decoder) which supports the conditional exclusion of properties. It is based on the standard library JSON encoder.
+This is a replacement JSON marshaler/encoder which supports the conditional exclusion of properties. It is a modification of the standard library JSON encoder.
+
+You can use this package instead of the standard marshaler in cases where you want to control which properties are included in the marshaled result.
 
     import (
       "github.com/bww/json"

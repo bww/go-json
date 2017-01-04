@@ -8,12 +8,9 @@ import (
 	"bytes"
 	"fmt"
 	"math"
-	"errors"
 	"reflect"
 	"testing"
 	"unicode"
-	"encoding"
-	"encoding/json"
 )
 
 type Optionals struct {
@@ -97,7 +94,7 @@ func TestStringTag(t *testing.T) {
 
 	// Verify that it round-trips.
 	var s2 StringTag
-	err = json.NewDecoder(bytes.NewReader(got)).Decode(&s2)
+	err = NewDecoder(bytes.NewReader(got)).Decode(&s2)
 	if err != nil {
 		t.Fatalf("Decode: %v", err)
 	}
@@ -423,9 +420,9 @@ func TestStringBytes(t *testing.T) {
 
 func TestIssue6458(t *testing.T) {
 	type Foo struct {
-		M json.RawMessage
+		M RawMessage
 	}
-	x := Foo{json.RawMessage(`"foo"`)}
+	x := Foo{RawMessage(`"foo"`)}
 
 	b, err := Marshal(&x)
 	if err != nil {
@@ -481,7 +478,7 @@ func TestEncodePointerString(t *testing.T) {
 		t.Errorf("Marshal = %s, want %s", got, want)
 	}
 	var back stringPointer
-	err = json.Unmarshal(b, &back)
+	err = Unmarshal(b, &back)
 	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
@@ -614,23 +611,3 @@ func TestTextMarshalerMapKeysAreSorted(t *testing.T) {
 		t.Errorf("Marshal map with text.Marshaler keys: got %#q, want %#q", b, want)
 	}
 }
-
-type unmarshalerText struct {
-	A, B string
-}
-
-// needed for re-marshaling tests
-func (u unmarshalerText) MarshalText() ([]byte, error) {
-	return []byte(u.A + ":" + u.B), nil
-}
-
-func (u *unmarshalerText) UnmarshalText(b []byte) error {
-	pos := bytes.Index(b, []byte(":"))
-	if pos == -1 {
-		return errors.New("missing separator")
-	}
-	u.A, u.B = string(b[:pos]), string(b[pos+1:])
-	return nil
-}
-
-var _ encoding.TextUnmarshaler = (*unmarshalerText)(nil)
