@@ -42,3 +42,15 @@ func (o tagOptions) Contains(optionName string) bool {
 	}
 	return false
 }
+
+// parseRoles splits a struct field's roles tag.
+func parseRoles(tag string) ([]string) {
+	if tag == "" {
+		return nil
+	}
+	r := strings.Split(tag, ",")
+	for i, e := range r {
+		r[i] = strings.TrimSpace(e)
+	}
+	return r
+}
