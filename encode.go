@@ -1137,6 +1137,9 @@ func typeFields(r []string, t reflect.Type) []field {
         
         if rset != nil {
           tag := sf.Tag.Get("roles")
+          if tag == "" {
+            tag = sf.Tag.Get("role")
+          }
           if tag != "" {
             req := parseRoles(tag)
             if len(req) < 1 {
