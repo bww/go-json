@@ -258,6 +258,24 @@ func (e *MarshalerError) Error() string {
 
 var hex = "0123456789abcdef"
 
+type cacheKey struct {
+  r string
+  t reflect.Type
+}
+
+func newCacheKey(r []string, t reflect.Type) cacheKey {
+  c := make([]string, len(r))
+  copy(c, r)
+  sort.Strings(c)
+  
+  var k string
+  for _, e := range c {
+    k += e
+  }
+  
+  return cacheKey{k, t}
+}
+
 // An encodeState encodes JSON into a bytes.Buffer.
 type encodeState struct {
 	bytes.Buffer // accumulated output
@@ -330,7 +348,7 @@ type encoderFunc func(e *encodeState, v reflect.Value, opts encOpts)
 
 var encoderCache struct {
 	sync.RWMutex
-	m map[reflect.Type]encoderFunc
+	m map[cacheKey]encoderFunc
 }
 
 func valueEncoder(r []string, v reflect.Value) encoderFunc {
@@ -341,24 +359,26 @@ func valueEncoder(r []string, v reflect.Value) encoderFunc {
 }
 
 func typeEncoder(r []string, t reflect.Type) encoderFunc {
+  k := newCacheKey(r, t)
+  
 	encoderCache.RLock()
-	f := encoderCache.m[t]
+	f := encoderCache.m[k]
 	encoderCache.RUnlock()
 	if f != nil {
 		return f
 	}
-
+  
 	// To deal with recursive types, populate the map with an
 	// indirect func before we build it. This type waits on the
 	// real func (f) to be ready and then calls it. This indirect
 	// func is only used for recursive types.
 	encoderCache.Lock()
 	if encoderCache.m == nil {
-		encoderCache.m = make(map[reflect.Type]encoderFunc)
+		encoderCache.m = make(map[cacheKey]encoderFunc)
 	}
 	var wg sync.WaitGroup
 	wg.Add(1)
-	encoderCache.m[t] = func(e *encodeState, v reflect.Value, opts encOpts) {
+	encoderCache.m[k] = func(e *encodeState, v reflect.Value, opts encOpts) {
 		wg.Wait()
 		f(e, v, opts)
 	}
@@ -369,7 +389,7 @@ func typeEncoder(r []string, t reflect.Type) encoderFunc {
 	f = newTypeEncoder(r, t, true)
 	wg.Done()
 	encoderCache.Lock()
-	encoderCache.m[t] = f
+	encoderCache.m[k] = f
 	encoderCache.Unlock()
 	return f
 }
@@ -1117,23 +1137,22 @@ func typeFields(r []string, t reflect.Type) []field {
         
         if rset != nil {
           tag := sf.Tag.Get("roles")
-          if tag == "-" {
-            continue
-          }
-          req := parseRoles(tag)
-          if len(req) < 1 {
-            continue
-          }
-          var found bool
-          for _, e := range req {
-            _, ok := rset[e]
-            if ok {
-              found = true
-              break
+          if tag != "" {
+            req := parseRoles(tag)
+            if len(req) < 1 {
+              continue
             }
-          }
-          if !found {
-            continue
+            var found bool
+            for _, e := range req {
+              _, ok := rset[e]
+              if ok {
+                found = true
+                break
+              }
+            }
+            if !found {
+              continue
+            }
           }
         }
         
@@ -1280,28 +1299,10 @@ var fieldCache struct {
 	mu    sync.Mutex   // used only by writers
 }
 
-type fieldCacheKey struct {
-  r string
-  t reflect.Type
-}
-
-func newFieldCacheKey(r []string, t reflect.Type) fieldCacheKey {
-  c := make([]string, len(r))
-  copy(c, r)
-  sort.Strings(c)
-  
-  var k string
-  for _, e := range c {
-    k += e
-  }
-  
-  return fieldCacheKey{k, t}
-}
-
 // cachedTypeFields is like typeFields but uses a cache to avoid repeated work.
 func cachedTypeFields(r []string, t reflect.Type) []field {
-	m, _ := fieldCache.value.Load().(map[fieldCacheKey][]field)
-  k := newFieldCacheKey(r, t)
+	m, _ := fieldCache.value.Load().(map[cacheKey][]field)
+  k := newCacheKey(r, t)
 	f := m[k]
 	if f != nil {
 		return f
@@ -1315,8 +1316,8 @@ func cachedTypeFields(r []string, t reflect.Type) []field {
 	}
 
 	fieldCache.mu.Lock()
-	m, _ = fieldCache.value.Load().(map[fieldCacheKey][]field)
-	newM := make(map[fieldCacheKey][]field, len(m)+1)
+	m, _ = fieldCache.value.Load().(map[cacheKey][]field)
+	newM := make(map[cacheKey][]field, len(m)+1)
 	for k, v := range m {
 		newM[k] = v
 	}
