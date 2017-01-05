@@ -1,8 +1,8 @@
 # Go JSON
 
-This is a replacement JSON marshaler/encoder which supports the conditional exclusion of properties. It is a modification of the standard library JSON encoder.
+This is a drop-in replacement JSON marshaler/encoder which supports the conditional exclusion of properties.
 
-You can use this package instead of the standard marshaler in cases where you want to control which properties are included in the marshaled result.
+You can use this package instead of the standard library JSON package in cases where you want to control which properties are included in the marshaled result. This package is a modification of the standard library JSON encoder and should otherwise function exactly the same.
 
     import (
       "github.com/bww/json"
@@ -21,13 +21,16 @@ You can use this package instead of the standard marshaler in cases where you wa
         1, 2, 3,
       }
       
+      // only properties with "public" or undefined roles are included
       data, _ = json.MarshalRole("public", ex)
       fmt.Println(string(data)) // {"a":1,"C",3}
       
+      // only properties with "private" or undefined roles are included
       data, _ = json.MarshalRole("private", ex)
       fmt.Println(string(data)) // {"a":1,"b":2,"c",3}
       
-      data, _ = json.Marshal(ex) // for compatibility with encoding/json
+      // for compatibility with encoding/json, roles are ignored
+      data, _ = json.Marshal(ex)
       fmt.Println(string(data)) // {"a":1,"b":2,"c",3}
       
     }
